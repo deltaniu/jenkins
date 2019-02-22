@@ -1,0 +1,13 @@
+mysql:
+  image: mysql:latest
+  environment:
+    - MYSQL_ROOT_PASSWORD=123456
+    - MYSQL_DATABASE=wordpress
+web:
+  image: nginx
+  links:
+    - mysql
+  environment:
+    - WORDPRESS_DB_PASSWORD=123456
+  ports:
+    - "127.0.0.1:8080:80"

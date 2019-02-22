@@ -1,0 +1,41 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+    labels:
+        qcloud-app: moon
+    name: moon
+    namespace: default
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            qcloud-app: moon
+    template:
+        metadata:
+            labels:
+                qcloud-app: moon
+        spec:
+            containers:
+                image: hub.tencentyun.com/shou_zan/fe_project@$IMAGE_DIGEST
+                imagePullPolicy: Always
+                name: moon
+            imagePullSecrets:
+                - name: qcloudregistrykey
+                - name: tencenthubkey
+---
+apiVersion: v1
+kind: Service
+metadata:
+    labels:
+        qcloud-app: moon
+    name: moon
+    namespace: default
+spec:
+    type: NodePort
+    ports:
+        - name: tcp-80-80
+          port: 80
+          protocol: TCP
+          targetPort: 80
+    selector:
+        qcloud-app: moon
