@@ -4,6 +4,7 @@
 
 > cenntos7 系统
 > 官网: https://jenkins.io/
+> 请将代码使用 国内 git 工具
 
 使用 jenkins(pipeline) 打造 CI/CD,jenkins 安装文档，帮助你填坑. docker 环境下安装,并运行 pipeline，其他辅助功能请参靠普通安装文档
 
@@ -287,18 +288,102 @@ package -Dmaven.test.skip=true
 
 > [参看](https://m.baidu.com/from=1086k/bd_page_type=1/ssid=0/uid=0/pu=usm%402%2Csz%40320_1002%2Cta%40iphone_2_7.1_2_12137.1/baiduid=F00D0A84A21B0D88C2C16F349EF44165/w=0_10_/t=iphone/l=3/tc?ref=www_iphone&lid=8117434510933041957&order=2&fm=alop&isAtom=1&is_baidu=0&tj=www_normal_2_0_10_title&vit=osres&m=8&srd=1&cltj=cloud_title&asres=1&title=jenkinsPipeline%E8%84%9A%E6%9C%ACjenkinsfile%E5%AE%9E%E6%93%8D%E6%8C%87%E5%8D%97%7CKL%E5%8D%9A%E5%AE%A2&dict=32&wd=&eqid=70a6ebadffa92400100000005c6b942a&w_qd=IlPT2AEptyoA_yivGU7mIisbfxLOQaSeHxiY2TtH_ncqUQ9uW6Jdtn0eiOW&tcplug=1&sec=36509&di=13873d259c12d382&bdenc=1&tch=124.667.272.664.3.673&nsrc=IlPT2AEptyoA_yixCFOxXnANedT62v3IEQGG_yNZ_zK8o5btauXhZQRAYyHbKXiKJoCb9meEhMp2tXLRPiR-k1ZOrxpms7g6kzm9u_&clk_type=1&l=1&baiduid=F00D0A84A21B0D88C2C16F349EF44165&w=0_10_jenkins%20pipeline%20ssh%20%E4%BC%A0%E9%80%81%E6%96%87%E4%BB%B6&t=iphone&from=1086k&ssid=0&uid=0&bd_page_type=1&pu=usm%402%2Csz%40320_1002%2Cta%40iphone_2_7.1_2_12137.1&clk_info=%7B%22srcid%22%3A1599%2C%22tplname%22%3A%22www_normal%22%2C%22t%22%3A1550554161205%2C%22xpath%22%3A%22div-article-section-section-div-div-div-a-div-div-span-em4%22%7D&sfOpen=1)
 
+项目会自动运行 jenkins 脚本, build 阶段能正常运行，但是会报， `No such DSL method 'sshagent' found among steps [archive, b`我们现在配置 ssh 免密传输
+
+# 5 jenkins 用户权限
+
+## 5.1 切换 jenkins 用户
+
+我们在 jenkins 运行工作流的的时候，并不是使用的 root 用户，而是使用的 jenkin 用户。我们需要在普通用户下，进行免密传输。我们现在切换到，jenkins
+
+我执行下面语句
+
+```
+su jenkins
+```
+
+输入密码后，提示错误
+这是由于没有激活 jenkins。
+之后我执行下面命令：
+
+```
+sudo passwd jenkins
+Enter new UNIX password: 输入新密码
+Retype new UNIX password:再次输入新密码
+passwd: password updated successfully
+```
+
+之后再执行：
+
+```
+su jenkins
+```
+
+这次不报错，但是就是切换不过去；网上一搜，找到了解决办法：
+
+```
+/etc/passwd 文件中的/bin/bash 被 yum 安装的时候变成了/bin/false.
+```
+
+`然后我执行 cat /etc/passwd 命令，果然被改成了/bin/false`
+
+`cat /etc/passwd`
+
+接着执行`sudo vim /etc/passwd`命令,把`false`改为`bash`
+
+```
+sudo vim /etc/passwd
+```
+
+修改完毕后，执行 su jenkins 命令。
+结果新的问题又来啦
+
+当我切换到 jenkins 用户后，命令提示符的用户名不是 jenkins 而变成了
+
+`-bash-4.1#`
+
+网上一查，原因是在安装 jenkins 时，jenkins 只是创建了 jenkins 用户，并没有为其创建 home 目录。所以系统就不会在创建用户的时候，自动拷贝`/etc/skel`目录下的用户环境变量文件到用户家目录，也就导致这些文件不存在，出现-bash-4.1#的问题了
+以下命令是在切换到 jenkins 用户下执行的！（只是用户现在显示的是-bash-4.1）
+
+这个时候呢，参考网上的做法我执行下面步骤：
+
+1. ①vim ~/.bash_profile
+
+   执行上面的命令，即使没有.bash_profile 文件，linux 会自动创建。
+
+2. ② 然后再添加这句
+
+```
+export PS1='[\u@\h \W]\$'
+
+PS1：命令行提示符环境变量
+```
+
+3. ③ 我们最后再刷新.bash_profile 文件，使其起作用
+
+```
+source ~/.bash_profile
+```
+
 ## ssh 免密码传输
 
-1. 切换用户
+[SSH 免密码登录，实现数据传输备份](https://www.cnblogs.com/crxis/p/9197615.html)
 
-   [切换用户]切换用户(https://blog.csdn.net/u013066244/article/details/52694772)
+请参考此教程，实现 jenkins 用户 ，向目标服务器发送数据
 
-2. [SSH 免密码登录，实现数据传输备份](https://www.cnblogs.com/crxis/p/9197615.html)
+# SSH Agent 传输文件
 
-# 12 jenkins 用户问题
+1. 请安装 SSH Agent 插件
 
-jenkins 默认是启用 jenkins 用户的注意权限问题
+2. 建立秘钥
 
-```
+   - 请参考 `在 Jenkins 配置 git ssh` 配置 sshagent 的通信凭证
 
-```
+   - username: jenkins
+   - Private Key: jenkins 用户下的私钥
+
+   * ID：deploy_ssh_key
+
+   * 其他为空
+
+3. 运行
