@@ -209,6 +209,10 @@ docker kill CONTAINER_ID
 查找并勾选所需插件，点击“直接安装”；
 无需重启 Jenkins 插件即生效。如遇失败可重试或离线安装。
 
+### 2.3.3 添加国内镜像源
+进入：`系统管理 / 管理插件 / 高级` ，在 `Update Site` 中填入华为镜像源
+`https://repo.huaweicloud.com/jenkins/update-center.json`
+
 # 3 项目接入-私有 Git 仓库帐号配置（通用版）
 
 > 注意此时我们是在 root 下
