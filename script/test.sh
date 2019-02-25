@@ -1,11 +1,11 @@
 
 #!/bin/bash
 
-passwd='Rfvnji_0890'
+passwd='xxx'
 
 /usr/bin/expect <<-EOF
 set time 30
-spawn rsync -avzP  ./build  root@140.143.132.159:/home/test
+spawn rsync -avzP  ./build  root@xxxxxx:/home/test
 expect {
 "*password:" {send "$passwd\r"} 
 }

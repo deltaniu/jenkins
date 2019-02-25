@@ -4,6 +4,7 @@
 
 > cenntos7 系统
 > 官网: https://jenkins.io/
+> 请将代码使用 国内 git 工具
 
 使用 jenkins(pipeline) 打造 CI/CD,jenkins 安装文档，帮助你填坑. docker 环境下安装,并运行 pipeline，其他辅助功能请参靠普通安装文档
 
@@ -48,14 +49,15 @@ jenkins 安装分为两种
 - [3 项目接入-私有 Git 仓库帐号配置（通用版）](#3-%E9%A1%B9%E7%9B%AE%E6%8E%A5%E5%85%A5-%E7%A7%81%E6%9C%89-git-%E4%BB%93%E5%BA%93%E5%B8%90%E5%8F%B7%E9%85%8D%E7%BD%AE%E9%80%9A%E7%94%A8%E7%89%88)
   - [3.1 配置 SSH Key 登录配置](#31-%E9%85%8D%E7%BD%AE-ssh-key-%E7%99%BB%E5%BD%95%E9%85%8D%E7%BD%AE)
   - [3.2 在 Jenkins 配置 git ssh](#32-%E5%9C%A8-jenkins-%E9%85%8D%E7%BD%AE-git-ssh)
-  - [3.2 插件安装](#32-%E6%8F%92%E4%BB%B6%E5%AE%89%E8%A3%85)
   - [3.3 新建构建项目](#33-%E6%96%B0%E5%BB%BA%E6%9E%84%E5%BB%BA%E9%A1%B9%E7%9B%AE)
     - [3.3.1 开始创建](#331-%E5%BC%80%E5%A7%8B%E5%88%9B%E5%BB%BA)
-    - [3.3.5 构建](#335-%E6%9E%84%E5%BB%BA)
+    - [3.3.2 配置 git](#332-%E9%85%8D%E7%BD%AE-git)
   - [3.4 手工触发构建](#34-%E6%89%8B%E5%B7%A5%E8%A7%A6%E5%8F%91%E6%9E%84%E5%BB%BA)
 - [4 pipeline](#4-pipeline)
-  - [4.1 ssh 免密码传输](#41-ssh-%E5%85%8D%E5%AF%86%E7%A0%81%E4%BC%A0%E8%BE%93)
-- [5 jenkins 用户问题](#5-jenkins-%E7%94%A8%E6%88%B7%E9%97%AE%E9%A2%98)
+- [5 jenkins 用户权限](#5-jenkins-%E7%94%A8%E6%88%B7%E6%9D%83%E9%99%90)
+  - [5.1 切换 jenkins 用户](#51-%E5%88%87%E6%8D%A2-jenkins-%E7%94%A8%E6%88%B7)
+  - [5.2 ssh 免密码传输](#52-ssh-%E5%85%8D%E5%AF%86%E7%A0%81%E4%BC%A0%E8%BE%93)
+- [6 SSH Agent 传输文件](#6-ssh-agent-%E4%BC%A0%E8%BE%93%E6%96%87%E4%BB%B6)
 
 ## 0 docker 安装配置 （前置条件）
 
@@ -106,15 +108,6 @@ ps aux |grep dockerd
 netstat -an | grep 2375
 ```
 
--   1.5 关闭 TCP 管理端口
-
-```
-   rm /etc/systemd/system/docker.service.d/tcp.conf -rf
-   systemctl daemon-reload
-   systemctl restart docker
-   ps aux |grep dockerd
-```
-
 ## 1 安装 Jenkins
 
 ## 1.1 docker 镜像 安装 jenkins
@@ -126,7 +119,9 @@ netstat -an | grep 2375
 -   下载镜像
 
 ```
-# jenkinsci/blueocean
+
+# docker pull jenkinsci/blueocean
+
 ```
 
 ### 1.1.2 创建容器
@@ -134,7 +129,9 @@ netstat -an | grep 2375
 -   创建 jenkins 容器
 
 ```
-docker run -d -u root -p 8080:8080  -v jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME":/home jenkinsci/blueocean
+
+docker run -d -u root -p 8080:8080 -v jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME":/home jenkinsci/blueocean
+
 ```
 
 参数解释：
@@ -144,19 +141,21 @@ docker run -d -u root -p 8080:8080  -v jenkins_home:/var/jenkins_home -v /var/ru
     -   在宿主机上执行`docker inspect jenkins_home` 查看 数据卷 在宿主机的目录
 
 *   `-p 8080:8080`
-    -   将容器内 8080 端口映射到主机的 8088 端口,主机端口可更换为其他
+    -   将容器内 8080 端口映射到主机的 8080 端口,主机端口可更换为其他
 
 ### 1.1.3 销毁容器
 
 ```
+
 docker kill CONTAINER_ID
+
 ```
 
 # 2 基本配置
 
 ## 2.1 登录
 
-浏览器进入 http://IP:8088/
+浏览器进入 http://IP:8080/
 
 首次进入需要输入初始密码来解锁，
 
@@ -164,7 +163,7 @@ docker kill CONTAINER_ID
 
 ```
 
-# 查看 Mountpoint /var/lib/docker/volumes/jenkins_home/_data
+# 查看 Mountpoint
 
 # docker inspect jenkins_home
 
@@ -213,21 +212,24 @@ docker kill CONTAINER_ID
 
 # 3 项目接入-私有 Git 仓库帐号配置（通用版）
 
+> 注意此时我们是在 root 下
+
 ## 3.1 配置 SSH Key 登录配置
 
 1. 生成 SSH 密钥打开终端命令工具，输入命令：
 
 ```
 
-ssh-keygen -t rsa -C "邮箱“
+ssh-keygen -t rsa
 
+回车
 ```
 
 公钥内容在 ~/.ssh/id_rsa.pub
 
 私有内容在 ~/.ssh/id_rsa
 
-2.  把公钥的内容加入 码云 的 SSH 密钥中
+2.  把公钥的内容加入 码云（或其他） 的 SSH 密钥中
 
 将公钥贴在 用户设置的 SSH 公钥贴入这个
 
@@ -245,25 +247,27 @@ ssh-keygen -t rsa -C "邮箱“
 
 ![](./img/1493747-468fcef7ee80908a.webp)
 
-## 3.2 插件安装
-
-[gitee jenkins](https://gitee.com/oschina/Gitee-Jenkins-Plugin#%E6%8F%92%E4%BB%B6%E5%AE%89%E8%A3%85)
-
 ## 3.3 新建构建项目
 
 ### 3.3.1 开始创建
 
 主页：点击“新建”；
 
-项目类型：输入项目名称 testTask，类型选择“构建一个自由软件风格项目”
+项目类型：输入项目名称 testTask，类型选择“多分支流水线”
 
-### 3.3.5 构建
+### 3.3.2 配置 git
 
-我们的项目是是使用 maven 的 ，在`构建` 中我们选择`调用顶层maven 目标`
+如图
 
-![](./img/WX20181204-123242@2x.png)
+![](./img/QQ20190222-233252@2x.png)
 
-选择我们之前配置的 maven 插件
+![](./img/QQ20190222-234002@2x.png)
+
+保存即可
+
+保存之后代码自动扫描,并会出现，分支信息
+
+![](./img/QQ20190222-234153@2x.png)
 
 ## 3.4 手工触发构建
 
@@ -285,14 +289,104 @@ package -Dmaven.test.skip=true
 
 > [参看](https://m.baidu.com/from=1086k/bd_page_type=1/ssid=0/uid=0/pu=usm%402%2Csz%40320_1002%2Cta%40iphone_2_7.1_2_12137.1/baiduid=F00D0A84A21B0D88C2C16F349EF44165/w=0_10_/t=iphone/l=3/tc?ref=www_iphone&lid=8117434510933041957&order=2&fm=alop&isAtom=1&is_baidu=0&tj=www_normal_2_0_10_title&vit=osres&m=8&srd=1&cltj=cloud_title&asres=1&title=jenkinsPipeline%E8%84%9A%E6%9C%ACjenkinsfile%E5%AE%9E%E6%93%8D%E6%8C%87%E5%8D%97%7CKL%E5%8D%9A%E5%AE%A2&dict=32&wd=&eqid=70a6ebadffa92400100000005c6b942a&w_qd=IlPT2AEptyoA_yivGU7mIisbfxLOQaSeHxiY2TtH_ncqUQ9uW6Jdtn0eiOW&tcplug=1&sec=36509&di=13873d259c12d382&bdenc=1&tch=124.667.272.664.3.673&nsrc=IlPT2AEptyoA_yixCFOxXnANedT62v3IEQGG_yNZ_zK8o5btauXhZQRAYyHbKXiKJoCb9meEhMp2tXLRPiR-k1ZOrxpms7g6kzm9u_&clk_type=1&l=1&baiduid=F00D0A84A21B0D88C2C16F349EF44165&w=0_10_jenkins%20pipeline%20ssh%20%E4%BC%A0%E9%80%81%E6%96%87%E4%BB%B6&t=iphone&from=1086k&ssid=0&uid=0&bd_page_type=1&pu=usm%402%2Csz%40320_1002%2Cta%40iphone_2_7.1_2_12137.1&clk_info=%7B%22srcid%22%3A1599%2C%22tplname%22%3A%22www_normal%22%2C%22t%22%3A1550554161205%2C%22xpath%22%3A%22div-article-section-section-div-div-div-a-div-div-span-em4%22%7D&sfOpen=1)
 
-## 4.1 ssh 免密码传输
+在项目的根目录下会有`jenkinsfile 文件`。
 
-1. 切换用户
+项目会自动运行 jenkinsfile 脚本, build 阶段能正常运行，但是会报， `No such DSL method 'sshagent' found among steps [archive, b`我们现在配置 ssh 免密传输
 
-    [切换用户]切换用户(https://blog.csdn.net/u013066244/article/details/52694772)
+# 5 jenkins 用户权限
 
-2. [SSH 免密码登录，实现数据传输备份](https://www.cnblogs.com/crxis/p/9197615.html)
+## 5.1 切换 jenkins 用户
 
-# 5 jenkins 用户问题
+我们在 jenkins 运行工作流的的时候，并不是使用的 root 用户，而是使用的 jenkin 用户。我们需要在普通用户下，进行免密传输。我们现在切换到，jenkins
 
-jenkins 默认是启用 jenkins 用户的注意权限问题
+我执行下面语句
+
+```
+su jenkins
+```
+
+输入密码后，提示错误
+这是由于没有激活 jenkins。
+之后我执行下面命令：
+
+```
+sudo passwd jenkins
+Enter new UNIX password: 输入新密码
+Retype new UNIX password:再次输入新密码
+passwd: password updated successfully
+```
+
+之后再执行：
+
+```
+su jenkins
+```
+
+这次不报错，但是就是切换不过去；网上一搜，找到了解决办法：
+
+```
+/etc/passwd 文件中的/bin/bash 被 yum 安装的时候变成了/bin/false.
+```
+
+`然后我执行 cat /etc/passwd 命令，果然被改成了/bin/false`
+
+`cat /etc/passwd`
+
+接着执行`sudo vim /etc/passwd`命令,把`false`改为`bash`
+
+```
+sudo vim /etc/passwd
+```
+
+修改完毕后，执行 su jenkins 命令。
+结果新的问题又来啦
+
+当我切换到 jenkins 用户后，命令提示符的用户名不是 jenkins 而变成了
+
+`-bash-4.1#`
+
+网上一查，原因是在安装 jenkins 时，jenkins 只是创建了 jenkins 用户，并没有为其创建 home 目录。所以系统就不会在创建用户的时候，自动拷贝`/etc/skel`目录下的用户环境变量文件到用户家目录，也就导致这些文件不存在，出现-bash-4.1#的问题了
+以下命令是在切换到 jenkins 用户下执行的！（只是用户现在显示的是-bash-4.1）
+
+这个时候呢，参考网上的做法我执行下面步骤：
+
+1. ①vim ~/.bash_profile
+
+    执行上面的命令，即使没有.bash_profile 文件，linux 会自动创建。
+
+2. ② 然后再添加这句
+
+```
+export PS1='[\u@\h \W]\$'
+
+PS1：命令行提示符环境变量
+```
+
+3. ③ 我们最后再刷新.bash_profile 文件，使其起作用
+
+```
+source ~/.bash_profile
+```
+
+## 5.2 ssh 免密码传输
+
+[SSH 免密码登录，实现数据传输备份](https://www.cnblogs.com/crxis/p/9197615.html)
+
+请参考此教程，实现 jenkins 用户 ，向目标服务器发送数据
+
+# 6 SSH Agent 传输文件
+
+1. 请安装 SSH Agent 插件
+
+2. 建立秘钥
+
+    - 请参考 `在 Jenkins 配置 git ssh` 配置 sshagent 的通信凭证
+
+    - username: jenkins
+    - Private Key: jenkins 用户下的私钥
+
+    * ID：deploy_ssh_key
+
+    * 其他为空
+
+3. 运行

@@ -1,7 +1,7 @@
 
 //SSH Agent Plugin
 pipeline {
-    agent { docker 'isam2016/node:latest' }
+    agent { docker 'node:8.11.3' }
     // agent any
     environment {
         DB_ENGINE    = 'sqlite'
@@ -27,7 +27,7 @@ pipeline {
                 sshagent(credentials:['deploy_ssh_key']){
                     sh 'ls'
                     // 不能是root 目录
-                    sh 'scp -r  -o  StrictHostKeyChecking=no ./dist  root@47.104.95.186:/home'
+                    sh 'scp -r  -o  StrictHostKeyChecking=no ./dist  root@xxxxxx:/home'
                 }
             }
         }
